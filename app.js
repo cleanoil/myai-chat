@@ -124,6 +124,8 @@ function updateComposer(){
 function updateStatus(){
   const ok=!!(settings.baseUrl&&settings.apiKey&&settings.models.length);
   $("statusDot").classList.toggle("ok",ok);$("statusText").textContent=ok?"接口已配置":"尚未完整配置 API";
+  $("quickSetup").hidden=ok;
+  if(!ok)$("setupNotice").hidden=true;
   const sel=$("modelSelect");sel.innerHTML="";
   const models=settings.models||[];
   if(!models.length){sel.disabled=true;sel.add(new Option("未配置模型",""));}
@@ -453,6 +455,7 @@ $("clearLocal").onclick=()=>{if(confirm("确定清除本机 API 设置和全部�
 document.querySelectorAll("[data-prompt]").forEach(b=>b.onclick=()=>{$("promptInput").value=b.dataset.prompt;autoResize();$("promptInput").focus();});
 $("importSettings").onclick=()=>$("settingsFile").click();
 $("scanSettings").onclick=()=>$("settingsQR").click();
+$("quickSetup").onclick=()=>{openSettings();$("settingsQR").click();};
 $("settingsQR").onchange=async e=>{const file=e.target.files[0];e.target.value="";if(!file)return;await importSettingsQR(file);};
 $("pasteSettings").onclick=async()=>{
   const link=prompt("粘贴配置二维码对应的完整链接（不是普通网页地址）");if(!link)return;
@@ -504,17 +507,25 @@ async function importSettingsQR(file){
   finally{if(url)URL.revokeObjectURL(url);}
 }
 async function importEncryptedSettings(envelope){
-  if(!envelope || envelope.v!==1)throw new Error("不支持此配置文件版本");
+  if(!envelope || ![1,2].includes(envelope.v))throw new Error("不支持此配置文件版本");
   if(!window.crypto?.subtle)throw new Error("请使用 HTTPS 网页导入配置");
-  const code=prompt("请输入电脑提供的 12 位配置码（用于解密连接设置）");
-  if(code===null)return;
+  const automatic=envelope.v===2;
+  const code=automatic?null:prompt("请输入电脑提供的 12 位配置码（用于解密连接设置）");
+  if(!automatic&&code===null)return;
   let imported;
   try{
-    const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.replace(/[\s-]/g,"")),"PBKDF2",false,["deriveKey"]);
-    const key=await crypto.subtle.deriveKey({name:"PBKDF2",hash:"SHA-256",salt:decodeBase64Url(envelope.s),iterations:200000},material,{name:"AES-GCM",length:256},false,["decrypt"]);
+    let key;
+    if(automatic){
+      const rawKey=decodeBase64Url(envelope.k);
+      if(rawKey.length!==32||decodeBase64Url(envelope.iv).length!==12)throw new Error("配置不完整");
+      key=await crypto.subtle.importKey("raw",rawKey,"AES-GCM",false,["decrypt"]);
+    }else{
+      const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.replace(/[\s-]/g,"")),"PBKDF2",false,["deriveKey"]);
+      key=await crypto.subtle.deriveKey({name:"PBKDF2",hash:"SHA-256",salt:decodeBase64Url(envelope.s),iterations:200000},material,{name:"AES-GCM",length:256},false,["decrypt"]);
+    }
     const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:decodeBase64Url(envelope.iv)},key,decodeBase64Url(envelope.data));
     imported=JSON.parse(new TextDecoder().decode(plaintext));
-  }catch{throw new Error("配置码不正确，或配置文件已损坏");}
+  }catch{throw new Error(automatic?"专属配置已损坏，请重新选择原始二维码":"配置码不正确，或配置文件已损坏");}
   if(!["openai","anthropic"].includes(imported.protocol) || typeof imported.baseUrl!=="string" || typeof imported.apiKey!=="string" || !imported.apiKey.trim() || !Array.isArray(imported.models) || !imported.models.length || imported.models.some(m=>typeof m!=="string" || !m.trim()))throw new Error("连接设置不完整");
   const base=new URL(imported.baseUrl);
   if(base.protocol!=="https:" || base.username || base.password || base.search || base.hash)throw new Error("配置必须使用不含账号和查询参数的 HTTPS 接口地址");
@@ -523,6 +534,11 @@ async function importEncryptedSettings(envelope){
   localStorage.setItem(STORAGE_SETTINGS,JSON.stringify(next));
   settings=next;render();openSettings();
   $("settingsMessage").textContent="已导入并保存到当前"+(isStandalone()?"桌面版":"浏览器")+"（"+base.hostname+"）。请点击“测试连接”。";
+  if(automatic){
+    closeSettings();
+    $("setupNotice").textContent="已自动配置并保存到当前"+(isStandalone()?"桌面版":"浏览器")+"，可以直接聊天。";
+    $("setupNotice").hidden=false;
+  }
 }
 async function importSettingsFromLink(){
   if(!location.hash.startsWith("#setup="))return;

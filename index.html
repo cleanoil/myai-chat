@@ -11,7 +11,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <title>MyAI - 私人 AI 助手</title>
-  <link rel="stylesheet" href="./style.css?v=4">
+  <link rel="stylesheet" href="./style.css?v=5">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 </head>
@@ -39,6 +39,7 @@
       </aside>
 
       <section class="chat-area">
+        <div id="setupNotice" class="setup-notice" role="status" hidden></div>
         <div id="storageWarning" class="warning" role="alert" hidden></div>
         <div class="chat-head">
           <div>
@@ -55,6 +56,7 @@
             <div class="welcome-mark">✦</div>
             <h1>有什么可以帮你？</h1>
             <p>连接自己的 AI 中转站，开始私人对话。</p>
+            <button id="quickSetup" class="primary-btn" hidden>扫码直接使用</button>
             <div class="suggestions">
               <button data-prompt="帮我制定一个清晰的工作计划">制定工作计划</button>
               <button data-prompt="请解释一个复杂概念，尽量通俗易懂">解释复杂概念</button>
@@ -68,8 +70,8 @@
           <div id="documentPreview" class="document-preview"></div>
           <div id="attachmentStatus" class="attachment-status" role="status"></div>
           <div class="composer-tools">
-            <button id="documentBtn" class="tool-btn" title="上传 PDF 或 Word 文档">📄 文档</button>
-            <input id="documentInput" type="file" accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden>
+            <button id="documentBtn" class="tool-btn" title="上传 PDF、Word、Excel 或 CSV">📄 文档 / 表格</button>
+            <input id="documentInput" type="file" accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" multiple hidden>
             <button id="webToggle" class="tool-btn" aria-pressed="false" title="允许模型搜索网络，费用按接口服务商规则计算">◎ 联网</button>
             <span id="webHint" class="hint">联网已关闭</span>
           </div>
@@ -90,6 +92,9 @@
   <section class="settings-panel" id="settingsPanel" aria-hidden="true">
     <div class="panel-head"><h2>连接设置</h2><button class="icon-btn" id="closeSettings">✕</button></div>
     <div class="panel-body">
+      <button id="scanSettings" class="primary-btn">扫码直接使用（拍照 / 相册）</button>
+      <input id="settingsQR" type="file" accept="image/*" hidden>
+      <p class="hint">个人专属免配置二维码可直接导入。若桌面版没有 Safari 的设置，请在桌面版内扫描一次。专属二维码请勿转发。</p>
       <label>接口协议</label>
       <select id="protocol">
         <option value="openai">OpenAI 兼容接口</option>
@@ -126,8 +131,6 @@
       </div>
       <button id="importSettings" class="secondary-btn">导入加密连接配置</button>
       <input id="settingsFile" type="file" accept=".myai,.json,application/json" hidden>
-      <button id="scanSettings" class="secondary-btn">扫描配置二维码（拍照 / 相册）</button>
-      <input id="settingsQR" type="file" accept="image/*" hidden>
       <button id="pasteSettings" class="secondary-btn">粘贴加密配置链接</button>
       <p class="hint">若桌面版没有 Safari 中的配置，请在桌面版这里导入一次。无需重新填写 URL 和 Key。</p>
       <div id="settingsMessage" class="settings-message"></div>
@@ -135,7 +138,7 @@
     </div>
   </section>
 
-  <script src="./documents.js?v=4"></script>
-  <script src="./app.js?v=4"></script>
+  <script src="./documents.js?v=5"></script>
+  <script src="./app.js?v=5"></script>
 </body>
 </html>
