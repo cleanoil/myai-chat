@@ -11,7 +11,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <title>MyAI - 私人 AI 助手</title>
-  <link rel="stylesheet" href="./style.css?v=5">
+  <link rel="stylesheet" href="./style.css?v=6">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 </head>
@@ -113,6 +113,7 @@
 
       <label>模型列表（每行一个模型 ID）</label>
       <textarea id="models" rows="4" placeholder="例如：&#10;gpt-4o&#10;gpt-4.1&#10;claude-sonnet-4-20250514"></textarea>
+      <button id="fetchModels" class="secondary-btn">从接口拉取模型列表</button>
       <p class="hint">模型 ID 以你的中转站实际支持列表为准。两种协议的模型列表可能不同。</p>
 
       <label>默认模型</label>
@@ -138,7 +139,7 @@
     </div>
   </section>
 
-  <script src="./documents.js?v=5"></script>
-  <script src="./app.js?v=5"></script>
+  <script src="./documents.js?v=6"></script>
+  <script src="./app.js?v=6"></script>
 </body>
 </html>

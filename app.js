@@ -422,6 +422,33 @@ async function sendMessage(){
   }
 }
 function stopGeneration(){generation?.controller.abort();$("stopBtn").textContent="正在停止…";}
+function modelsEndpoint(){
+  const base=cleanBase(settings.baseUrl).replace(/\/(chat\/completions|messages)$/i,"");
+  if(!base) throw new Error("请先填写 Base URL");
+  return base+(base.endsWith("/v1")?"/models":"/v1/models");
+}
+async function refreshModels(options={}){
+  if(!settings.baseUrl||!settings.apiKey){if(!options.quiet)$("settingsMessage").textContent="请先填写 URL 和 Key。";return;}
+  if(!options.quiet)$("settingsMessage").textContent="正在拉取模型列表…";
+  try{
+    const headers=settings.protocol==="anthropic"&&new URL(modelsEndpoint()).hostname!=="api.gateway.qops.build"
+      ?{"x-api-key":settings.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}
+      :{Authorization:"Bearer "+settings.apiKey};
+    const response=await fetch(modelsEndpoint(),{headers});
+    if(!response.ok)throw new Error("HTTP "+response.status);
+    const list=(await response.json()).data||[];
+    const want=settings.protocol==="anthropic"?"messages":"chat_completions";
+    // Gateways such as QOPS report which API each model speaks; keep only text
+    // models usable with the selected protocol. Plain lists keep everything.
+    const ids=list.filter(m=>m?.id&&(!m.type||m.type==="text")&&(!Array.isArray(m.preferred_api)||m.preferred_api.includes(want))).map(m=>m.id);
+    if(!ids.length)throw new Error("接口未返回可用于当前协议的模型");
+    const models=[...new Set([...settings.models.filter(m=>ids.includes(m)),...ids])];
+    settings={...settings,models,defaultModel:models.includes(settings.defaultModel)?settings.defaultModel:models[0]};
+    localStorage.setItem(STORAGE_SETTINGS,JSON.stringify(settings));
+    $("models").value=models.join("\n");$("defaultModel").value=settings.defaultModel;updateStatus();
+    if(!options.quiet)$("settingsMessage").textContent="已拉取 "+models.length+" 个模型。";
+  }catch(e){if(!options.quiet)$("settingsMessage").textContent="拉取模型失败："+(e instanceof TypeError?"网络或跨域（CORS）限制":e.message)+"，可手动填写模型 ID。";}
+}
 async function testConnection(){
   saveSettings();
   if(!settings.baseUrl||!settings.apiKey||!settings.models.length){$("settingsMessage").textContent="请先填写 URL、Key 和至少一个模型。";return;}
@@ -437,6 +464,7 @@ function closeSidebar(){$("sidebar").classList.remove("open");}
 $("settingsBtn").onclick=openSettings;$("closeSettings").onclick=closeSettings;$("overlay").onclick=()=>{closeSettings();closeSidebar();};
 $("saveSettings").onclick=()=>{saveSettings();closeSettings();render();};
 $("testConnection").onclick=testConnection;
+$("fetchModels").onclick=()=>{saveSettings();refreshModels();};
 $("toggleKey").onclick=()=>{const i=$("apiKey");i.type=i.type==="password"?"text":"password";$("toggleKey").textContent=i.type==="password"?"显示":"隐藏";};
 $("newChatBtn").onclick=createChat;$("menuBtn").onclick=()=> $("sidebar").classList.toggle("open");
 $("clearChats").onclick=clearChats;
@@ -506,7 +534,7 @@ async function importSettingsQR(file){
   }catch(error){$("settingsMessage").textContent="导入失败："+error.message;}
   finally{if(url)URL.revokeObjectURL(url);}
 }
-async function importEncryptedSettings(envelope){
+async function importEncryptedSettings(envelope,options={}){
   if(!envelope || ![1,2].includes(envelope.v))throw new Error("不支持此配置文件版本");
   if(!window.crypto?.subtle)throw new Error("请使用 HTTPS 网页导入配置");
   const automatic=envelope.v===2;
@@ -531,23 +559,27 @@ async function importEncryptedSettings(envelope){
   if(base.protocol!=="https:" || base.username || base.password || base.search || base.hash)throw new Error("配置必须使用不含账号和查询参数的 HTTPS 接口地址");
   const models=[...new Set(imported.models.map(m=>m.trim()))];
   const next={protocol:imported.protocol,baseUrl:imported.baseUrl.trim(),apiKey:imported.apiKey.trim(),models,defaultModel:models.includes(imported.defaultModel)?imported.defaultModel:models[0],systemPrompt:typeof imported.systemPrompt==="string"?imported.systemPrompt:""};
+  // Bookmarked personal links are reopened every launch: when the connection is
+  // unchanged keep local model / prompt edits and go straight to chat.
+  if(options.fromLink && settings.protocol===next.protocol && cleanBase(settings.baseUrl)===cleanBase(next.baseUrl) && settings.apiKey===next.apiKey && settings.models?.length)return;
   localStorage.setItem(STORAGE_SETTINGS,JSON.stringify(next));
   settings=next;render();openSettings();
   $("settingsMessage").textContent="已导入并保存到当前"+(isStandalone()?"桌面版":"浏览器")+"（"+base.hostname+"）。请点击“测试连接”。";
   if(automatic){
     closeSettings();
-    $("setupNotice").textContent="已自动配置并保存到当前"+(isStandalone()?"桌面版":"浏览器")+"，可以直接聊天。";
+    $("setupNotice").textContent="已自动配置并保存到当前"+(isStandalone()?"桌面版":"浏览器")+"，可以直接聊天。"+(options.fromLink?"可收藏此页或添加到主屏幕，之后打开即用。":"");
     $("setupNotice").hidden=false;
+    refreshModels({quiet:true});
   }
 }
 async function importSettingsFromLink(){
   if(!location.hash.startsWith("#setup="))return;
   const encoded=location.hash.slice(7);
-  // Remove the encrypted setup link before saving/bookmarking this page.
-  history.replaceState(null,"",location.pathname+location.search);
+  // The fragment is kept so the page can be bookmarked or added to the home
+  // screen and still carry the setup. Fragments are never sent to the server.
   try{
     if(encoded.length>90000)throw new Error("配置链接过长");
-    await importEncryptedSettings(JSON.parse(new TextDecoder().decode(decodeBase64Url(encoded))));
+    await importEncryptedSettings(JSON.parse(new TextDecoder().decode(decodeBase64Url(encoded))),{fromLink:true});
   }catch(error){openSettings();$("settingsMessage").textContent="导入失败："+error.message;}
 }
 if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("./sw.js").catch(()=>{});

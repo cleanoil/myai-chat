@@ -1,7 +1,8 @@
 {
   "name": "MyAI 私人 AI 助手",
   "short_name": "MyAI",
-  "start_url": "./",
+  "id": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f7f8fa",
   "theme_color": "#111827",
