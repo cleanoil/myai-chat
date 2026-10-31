@@ -145,7 +145,18 @@ async function callAI(chat,model){
     payload={model,max_tokens:4096,messages:makeAnthropicMessages(chat)};
     if(settings.systemPrompt) payload.system=settings.systemPrompt;
   }
-  const response=await fetch(url,{method:"POST",headers,body:JSON.stringify(payload)});
+  // QOPS accepts Claude Code Bearer credentials and supplies the API version.
+  // Its browser CORS policy does not allow Anthropic's extra request headers.
+  if(settings.protocol==="anthropic" && new URL(url).hostname==="api.gateway.qops.build"){
+    headers={"Content-Type":"application/json",Authorization:"Bearer "+settings.apiKey};
+  }
+  let response;
+  try{
+    response=await fetch(url,{method:"POST",headers,body:JSON.stringify(payload)});
+  }catch(e){
+    if(e instanceof TypeError) throw new Error("网络请求未完成（Load failed）。请检查接口地址是否能在当前网络访问、是否使用 HTTPS，以及服务商是否允许网页跨域请求（CORS）。");
+    throw e;
+  }
   const raw=await response.text();
   let data;try{data=JSON.parse(raw);}catch{throw new Error("接口返回的不是 JSON："+raw.slice(0,300));}
   if(!response.ok) throw new Error(data.error?.message||data.message||("HTTP "+response.status));
@@ -202,6 +213,52 @@ $("imageInput").onchange=async e=>{await addImages([...e.target.files]);e.target
 $("modelSelect").onchange=()=>{const c=currentChat();if(c){c.model=activeModel();saveChats();}};
 $("clearLocal").onclick=()=>{if(confirm("确定清除本机 API 设置和全部聊天记录？此操作不可撤销。")){localStorage.removeItem(STORAGE_SETTINGS);localStorage.removeItem(STORAGE_CHATS);settings=loadSettings();chats=[];activeChatId=null;closeSettings();render();}};
 document.querySelectorAll("[data-prompt]").forEach(b=>b.onclick=()=>{$("promptInput").value=b.dataset.prompt;autoResize();$("promptInput").focus();});
+$("importSettings").onclick=()=>$("settingsFile").click();
+$("settingsFile").onchange=async e=>{
+  const file=e.target.files[0];e.target.value="";
+  if(!file)return;
+  try{
+    if(file.size>65536)throw new Error("配置文件过大");
+    await importEncryptedSettings(JSON.parse(await file.text()));
+  }catch(error){openSettings();$("settingsMessage").textContent="导入失败："+error.message;}
+};
+
+function decodeBase64Url(value){
+  if(typeof value!=="string" || !/^[A-Za-z0-9_-]+$/.test(value))throw new Error("配置格式不正确");
+  return Uint8Array.from(atob(value.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-value.length%4)%4)),c=>c.charCodeAt(0));
+}
+async function importEncryptedSettings(envelope){
+  if(!envelope || envelope.v!==1)throw new Error("不支持此配置文件版本");
+  if(!window.crypto?.subtle)throw new Error("请使用 HTTPS 网页导入配置");
+  const code=prompt("请输入电脑提供的 12 位配置码（用于解密连接设置）");
+  if(code===null)return;
+  let imported;
+  try{
+    const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.replace(/[\s-]/g,"")),"PBKDF2",false,["deriveKey"]);
+    const key=await crypto.subtle.deriveKey({name:"PBKDF2",hash:"SHA-256",salt:decodeBase64Url(envelope.s),iterations:200000},material,{name:"AES-GCM",length:256},false,["decrypt"]);
+    const plaintext=await crypto.subtle.decrypt({name:"AES-GCM",iv:decodeBase64Url(envelope.iv)},key,decodeBase64Url(envelope.data));
+    imported=JSON.parse(new TextDecoder().decode(plaintext));
+  }catch{throw new Error("配置码不正确，或配置文件已损坏");}
+  if(!["openai","anthropic"].includes(imported.protocol) || typeof imported.baseUrl!=="string" || typeof imported.apiKey!=="string" || !imported.apiKey.trim() || !Array.isArray(imported.models) || !imported.models.length || imported.models.some(m=>typeof m!=="string" || !m.trim()))throw new Error("连接设置不完整");
+  const base=new URL(imported.baseUrl);
+  if(base.protocol!=="https:" || base.username || base.password || base.search || base.hash)throw new Error("配置必须使用不含账号和查询参数的 HTTPS 接口地址");
+  const models=[...new Set(imported.models.map(m=>m.trim()))];
+  const next={protocol:imported.protocol,baseUrl:imported.baseUrl.trim(),apiKey:imported.apiKey.trim(),models,defaultModel:models.includes(imported.defaultModel)?imported.defaultModel:models[0],systemPrompt:typeof imported.systemPrompt==="string"?imported.systemPrompt:""};
+  localStorage.setItem(STORAGE_SETTINGS,JSON.stringify(next));
+  settings=next;render();openSettings();
+  $("settingsMessage").textContent="已导入连接设置（"+base.hostname+"）。请点击“测试连接”。";
+}
+async function importSettingsFromLink(){
+  if(!location.hash.startsWith("#setup="))return;
+  const encoded=location.hash.slice(7);
+  // Remove the encrypted setup link before saving/bookmarking this page.
+  history.replaceState(null,"",location.pathname+location.search);
+  try{
+    if(encoded.length>90000)throw new Error("配置链接过长");
+    await importEncryptedSettings(JSON.parse(new TextDecoder().decode(decodeBase64Url(encoded))));
+  }catch(error){openSettings();$("settingsMessage").textContent="导入失败："+error.message;}
+}
 if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("./sw.js").catch(()=>{});
 if(!activeChatId && chats.length===0) activeChatId=null;
 render();
+importSettingsFromLink();
