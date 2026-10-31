@@ -11,11 +11,12 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <title>MyAI - 私人 AI 助手</title>
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=4">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 </head>
 <body>
+  <div id="updateBanner" class="update-banner" hidden>新版已就绪<button id="reloadApp">刷新使用</button></div>
   <div class="app">
     <header class="topbar">
       <button class="icon-btn" id="menuBtn" aria-label="打开会话列表">☰</button>
@@ -26,8 +27,11 @@
     <main class="main">
       <aside class="sidebar" id="sidebar">
         <button class="primary-btn full" id="newChatBtn">＋ 新建对话</button>
+        <input id="chatSearch" class="chat-search" type="search" placeholder="搜索标题和消息…" aria-label="搜索历史对话" autocomplete="off">
+        <div id="searchStatus" class="hint" aria-live="polite"></div>
         <div class="side-title">最近对话</div>
         <div id="chatList" class="chat-list"></div>
+        <button id="clearChats" class="danger-btn">清空全部对话（保留配置）</button>
         <div class="side-bottom">
           <span class="status-dot" id="statusDot"></span>
           <span id="statusText">尚未配置 API</span>
@@ -35,6 +39,7 @@
       </aside>
 
       <section class="chat-area">
+        <div id="storageWarning" class="warning" role="alert" hidden></div>
         <div class="chat-head">
           <div>
             <div class="chat-title" id="chatTitle">新对话</div>
@@ -60,13 +65,22 @@
 
         <div class="composer-wrap">
           <div id="imagePreview" class="image-preview"></div>
+          <div id="documentPreview" class="document-preview"></div>
+          <div id="attachmentStatus" class="attachment-status" role="status"></div>
+          <div class="composer-tools">
+            <button id="documentBtn" class="tool-btn" title="上传 PDF 或 Word 文档">📄 文档</button>
+            <input id="documentInput" type="file" accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden>
+            <button id="webToggle" class="tool-btn" aria-pressed="false" title="允许模型搜索网络，费用按接口服务商规则计算">◎ 联网</button>
+            <span id="webHint" class="hint">联网已关闭</span>
+          </div>
           <div class="composer">
-            <button id="attachBtn" class="attach-btn" title="添加图片">＋</button>
+            <button id="attachBtn" class="attach-btn" title="添加图片" aria-label="添加图片">＋</button>
             <input id="imageInput" type="file" accept="image/*" multiple hidden>
             <textarea id="promptInput" rows="1" placeholder="给 MyAI 发送消息…"></textarea>
-            <button id="sendBtn" class="send-btn" title="发送">↑</button>
+            <button id="sendBtn" class="send-btn" title="发送" aria-label="发送">↑</button>
+            <button id="stopBtn" class="stop-btn" hidden>■ 停止</button>
           </div>
-          <div class="composer-note">AI 生成内容可能有误。图片识别取决于所选模型及中转站支持情况。</div>
+          <div class="composer-note">文档文字将在发送时交给模型。联网能力和费用取决于接口，AI 回答请核对来源。</div>
         </div>
       </section>
     </main>
@@ -112,11 +126,16 @@
       </div>
       <button id="importSettings" class="secondary-btn">导入加密连接配置</button>
       <input id="settingsFile" type="file" accept=".myai,.json,application/json" hidden>
+      <button id="scanSettings" class="secondary-btn">扫描配置二维码（拍照 / 相册）</button>
+      <input id="settingsQR" type="file" accept="image/*" hidden>
+      <button id="pasteSettings" class="secondary-btn">粘贴加密配置链接</button>
+      <p class="hint">若桌面版没有 Safari 中的配置，请在桌面版这里导入一次。无需重新填写 URL 和 Key。</p>
       <div id="settingsMessage" class="settings-message"></div>
       <button id="clearLocal" class="danger-btn">清除本机设置和聊天记录</button>
     </div>
   </section>
 
-  <script src="./app.js?v=3"></script>
+  <script src="./documents.js?v=4"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
-const CACHE="myai-shell-v3";
-const ASSETS=["./","./index.html","./style.css","./app.js?v=3","./manifest.webmanifest","./icon.svg","./apple-touch-icon.png","./icon-192.png","./icon-512.png"];
+const CACHE="myai-shell-v4";
+const ASSETS=["./","./index.html","./style.css?v=4","./documents.js?v=4","./app.js?v=4","./manifest.webmanifest","./icon.svg","./apple-touch-icon.png","./icon-192.png","./icon-512.png","./vendor/pdf.mjs","./vendor/pdf.worker.mjs","./vendor/mammoth.browser.min.js","./vendor/jsQR.js"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("myai-shell-")&&k!==CACHE).map(k=>caches.delete(k))))
   .then(()=>self.clients.claim())
@@ -7,7 +7,14 @@ self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise
 self.addEventListener("fetch",e=>{
   const u=new URL(e.request.url);
   if(e.request.method!=="GET" || u.origin!==location.origin) return;
+  // Only cache the public application shell. Setup links contain a private
+  // encrypted envelope in the fragment; never cache arbitrary navigations.
+  if(e.request.mode==="navigate"){
+    e.respondWith(fetch(e.request).catch(()=>caches.match(new URL("./index.html",self.registration.scope).href)));
+    return;
+  }
+  if(!ASSETS.some(asset=>new URL(asset,self.registration.scope).href===u.href))return;
   e.respondWith(caches.match(e.request).then(cached=>cached||fetch(e.request).then(r=>{
-    const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r;
+    if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));}return r;
   }).catch(()=>cached)));
 });
