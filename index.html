@@ -11,7 +11,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <title>MyAI - 私人 AI 助手</title>
-  <link rel="stylesheet" href="./style.css?v=7">
+  <link rel="stylesheet" href="./style.css?v=8">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 </head>
@@ -72,8 +72,8 @@
           <div class="composer-tools">
             <button id="documentBtn" class="tool-btn" title="上传 PDF、Word、Excel 或 CSV">📄 文档 / 表格</button>
             <input id="documentInput" type="file" accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" multiple hidden>
-            <button id="webToggle" class="tool-btn" aria-pressed="false" title="允许模型搜索网络，费用按接口服务商规则计算">◎ 联网</button>
-            <span id="webHint" class="hint">联网已关闭</span>
+            <button id="webToggle" class="tool-btn" aria-pressed="true" title="允许模型搜索网络，费用按接口服务商规则计算">◎ 联网</button>
+            <span id="webHint" class="hint">允许搜索新闻和知识 · 按服务商计费</span>
           </div>
           <div class="composer">
             <button id="attachBtn" class="attach-btn" title="添加图片" aria-label="添加图片">＋</button>
@@ -147,7 +147,7 @@
     </div>
   </section>
 
-  <script src="./documents.js?v=7"></script>
-  <script src="./app.js?v=7"></script>
+  <script src="./documents.js?v=8"></script>
+  <script src="./app.js?v=8"></script>
 </body>
 </html>

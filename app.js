@@ -9,7 +9,7 @@ let pendingDocuments = [];
 let extractingDocuments = false;
 let extractionVersion = 0;
 let generation = null;
-let webEnabled = false;
+let webEnabled = true;
 let busy = false;
 
 function loadSettings(){try{return JSON.parse(localStorage.getItem(STORAGE_SETTINGS))||{protocol:"openai",baseUrl:"",apiKey:"",models:[],defaultModel:"",systemPrompt:""};}catch{return {protocol:"openai",baseUrl:"",apiKey:"",models:[],defaultModel:"",systemPrompt:""};}}
