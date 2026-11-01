@@ -11,7 +11,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
   <title>MyAI - 私人 AI 助手</title>
-  <link rel="stylesheet" href="./style.css?v=6">
+  <link rel="stylesheet" href="./style.css?v=7">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 </head>
@@ -119,6 +119,14 @@
       <label>默认模型</label>
       <input id="defaultModel" type="text" placeholder="例如：gpt-4o">
 
+      <label for="responseStyle">回答详略</label>
+      <select id="responseStyle">
+        <option value="concise">简洁：结论和要点</option>
+        <option value="standard">标准：适度解释</option>
+        <option value="detailed" selected>详细：充分分析、依据和建议</option>
+      </select>
+      <p class="hint">默认详细；也可在提问中指定篇幅。详细回答可能需要更多时间和接口费用。</p>
+
       <label>系统提示词（可选）</label>
       <textarea id="systemPrompt" rows="3" placeholder="例如：你是一个严谨、善于分析的中文助手。"></textarea>
 
@@ -139,7 +147,7 @@
     </div>
   </section>
 
-  <script src="./documents.js?v=6"></script>
-  <script src="./app.js?v=6"></script>
+  <script src="./documents.js?v=7"></script>
+  <script src="./app.js?v=7"></script>
 </body>
 </html>

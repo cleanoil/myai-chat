@@ -18,6 +18,15 @@ function saveChats(){try{localStorage.setItem(STORAGE_CHATS,JSON.stringify(chats
 function currentChat(){return chats.find(c=>c.id===activeChatId);}
 function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function cleanBase(url){return url.trim().replace(/\/+$/,"");}
+function responseStyle(){return ["concise","standard","detailed"].includes(settings.responseStyle)?settings.responseStyle:"detailed";}
+function effectiveSystemPrompt(){
+  const guidance={
+    concise:"回答简洁，直接提供关键结论与必要依据。",
+    standard:"根据问题复杂度提供适当解释、依据和可执行建议。",
+    detailed:"默认充分回答问题。对分析、决策、新闻和文档问题，先给结论，再说明关键依据、影响因素、具体例子或数据，以及可执行建议；适用时比较方案、交代假设与不确定性。不要只给几句泛泛总结。简单问题仍直接回答，不为凑字数重复内容。"
+  };
+  return ["你是严谨、实用的中文助手，默认用中文回答，尊重用户指定的语言、格式和篇幅。区分已知事实、推断和建议，不编造数据、来源或未执行的检索。分析附件时引用可核对的工作表、单元格或原文；资料不足时说明缺少什么。提供可核查的依据和解释。",guidance[responseStyle()],settings.systemPrompt?.trim()].filter(Boolean).join("\n\n");
+}
 function endpoint(){
   const base=cleanBase(settings.baseUrl);
   if(!base) throw new Error("请先填写 Base URL");
@@ -156,6 +165,7 @@ function openSettings(){
   $("protocol").value=settings.protocol;$("baseUrl").value=settings.baseUrl;$("apiKey").value=settings.apiKey;
   $("models").value=(settings.models||[]).join("\n");$("defaultModel").value=settings.defaultModel||"";
   $("systemPrompt").value=settings.systemPrompt||"";
+  $("responseStyle").value=responseStyle();
   $("settingsMessage").textContent=isStandalone()&&!settings.apiKey?"桌面版与 Safari 的存储可能独立。请在此处扫描配置二维码或导入 .myai 配置文件，输入配置码后即可保存到桌面版。":"";
   $("settingsPanel").classList.add("open");$("overlay").classList.add("open");$("settingsPanel").setAttribute("aria-hidden","false");
 }
@@ -163,7 +173,7 @@ function closeSettings(){$("settingsPanel").classList.remove("open");$("overlay"
 function saveSettings(){
   settings={protocol:$("protocol").value,baseUrl:$("baseUrl").value.trim(),apiKey:$("apiKey").value.trim(),
     models:$("models").value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),
-    defaultModel:$("defaultModel").value.trim(),systemPrompt:$("systemPrompt").value.trim()};
+    defaultModel:$("defaultModel").value.trim(),systemPrompt:$("systemPrompt").value.trim(),responseStyle:$("responseStyle").value};
   localStorage.setItem(STORAGE_SETTINGS,JSON.stringify(settings));updateStatus();
   $("settingsMessage").textContent="设置已保存在本机。";
 }
@@ -227,7 +237,7 @@ function userMessageText(m){
 }
 function makeOpenAIMessages(chat){
   const out=[];
-  if(settings.systemPrompt) out.push({role:"system",content:settings.systemPrompt});
+  out.push({role:"system",content:effectiveSystemPrompt()});
   for(const m of chat.messages.filter(m=>m.status!=="error" && (m.role==="user"||m.content))){
     if(m.role==="assistant"){out.push({role:"assistant",content:m.content||""});continue;}
     if(m.images?.length){
@@ -303,8 +313,7 @@ async function callAI(chat,model,options={}){
     headers["x-api-key"]=settings.apiKey;
     headers["anthropic-version"]="2023-06-01";
     headers["anthropic-dangerous-direct-browser-access"]="true";
-    payload={model,max_tokens:4096,messages:makeAnthropicMessages(chat)};
-    if(settings.systemPrompt) payload.system=settings.systemPrompt;
+    payload={model,max_tokens:8192,messages:makeAnthropicMessages(chat),system:effectiveSystemPrompt()};
   }
   if(stream)payload.stream=true;
   if(options.web){
@@ -384,6 +393,8 @@ async function callAI(chat,model,options={}){
   else{(data.content||[]).forEach(inspectBlock);answer=(data.content||[]).filter(x=>x.type==="text").map(x=>x.text).join("\n");}
   if(typeof answer!=="string"||!answer.trim())throw new Error("接口没有返回文字回复"+webHelp);
   if(stream)options.onDelta(answer);
+  const reason=protocol==="openai"?data.choices?.[0]?.finish_reason:data.stop_reason;
+  if(["length","max_tokens"].includes(reason))options.onStatus?.("达到输出长度上限，可发送“继续”");
   return answer;
 }
 async function sendMessage(){
@@ -558,7 +569,7 @@ async function importEncryptedSettings(envelope,options={}){
   const base=new URL(imported.baseUrl);
   if(base.protocol!=="https:" || base.username || base.password || base.search || base.hash)throw new Error("配置必须使用不含账号和查询参数的 HTTPS 接口地址");
   const models=[...new Set(imported.models.map(m=>m.trim()))];
-  const next={protocol:imported.protocol,baseUrl:imported.baseUrl.trim(),apiKey:imported.apiKey.trim(),models,defaultModel:models.includes(imported.defaultModel)?imported.defaultModel:models[0],systemPrompt:typeof imported.systemPrompt==="string"?imported.systemPrompt:""};
+  const next={protocol:imported.protocol,baseUrl:imported.baseUrl.trim(),apiKey:imported.apiKey.trim(),models,defaultModel:models.includes(imported.defaultModel)?imported.defaultModel:models[0],systemPrompt:typeof imported.systemPrompt==="string"?imported.systemPrompt:"",responseStyle:["concise","standard","detailed"].includes(imported.responseStyle)?imported.responseStyle:"detailed"};
   // Bookmarked personal links are reopened every launch: when the connection is
   // unchanged keep local model / prompt edits and go straight to chat.
   if(options.fromLink && settings.protocol===next.protocol && cleanBase(settings.baseUrl)===cleanBase(next.baseUrl) && settings.apiKey===next.apiKey && settings.models?.length)return;
